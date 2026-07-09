@@ -59,12 +59,49 @@ jobs:
 
       - name: Prepare lowercase image tags
         run: |
-          PROJECT_ID_LC="$(echo "$PROJECT_ID" | tr '[:upper:]' '[:lower:]')"
-          BACKEND_SERVICE_LC="$(echo "$BACKEND_SERVICE_NAME" | tr '[:upper:]' '[:lower:]')"
-          FRONTEND_SERVICE_LC="$(echo "$FRONTEND_SERVICE_NAME" | tr '[:upper:]' '[:lower:]')"
+          sanitize_cloud_run_name() {
+            local raw="$1"
+            local lowered
+            lowered="$(echo "$raw" | tr '[:upper:]' '[:lower:]')"
+            lowered="$(echo "$lowered" | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-+//; s/-+$//')"
+            lowered="${lowered:0:63}"
+            lowered="$(echo "$lowered" | sed -E 's/-+$//')"
+            if [[ -z "$lowered" ]]; then
+              lowered="app"
+            fi
+            echo "$lowered"
+          }
 
-          echo "BACKEND_IMAGE=gcr.io/${PROJECT_ID_LC}/${BACKEND_SERVICE_LC}:${GITHUB_SHA}" >> "$GITHUB_ENV"
-          echo "FRONTEND_IMAGE=gcr.io/${PROJECT_ID_LC}/${FRONTEND_SERVICE_LC}:${GITHUB_SHA}" >> "$GITHUB_ENV"
+          sanitize_function_name() {
+            local raw="$1"
+            local lowered
+            lowered="$(echo "$raw" | tr '[:upper:]' '[:lower:]')"
+            lowered="$(echo "$lowered" | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-+//; s/-+$//')"
+            if [[ ! "$lowered" =~ ^[a-z] ]]; then
+              lowered="fn-${lowered}"
+            fi
+            lowered="${lowered:0:63}"
+            lowered="$(echo "$lowered" | sed -E 's/-+$//')"
+            if [[ -z "$lowered" ]]; then
+              lowered="fn-app"
+            fi
+            echo "$lowered"
+          }
+
+          PROJECT_ID_LC="$(echo "$PROJECT_ID" | tr '[:upper:]' '[:lower:]')"
+          BACKEND_SERVICE_SAFE="$(sanitize_cloud_run_name "$BACKEND_SERVICE_NAME")"
+          FRONTEND_SERVICE_SAFE="$(sanitize_cloud_run_name "$FRONTEND_SERVICE_NAME")"
+          CART_AGENT_FUNCTION_SAFE="$(sanitize_function_name "$CART_AGENT_FUNCTION_NAME")"
+          CONNECT_BIGQUERY_FUNCTION_SAFE="$(sanitize_function_name "$CONNECT_BIGQUERY_FUNCTION_NAME")"
+          SEARCH_PRODUCTS_FUNCTION_SAFE="$(sanitize_function_name "$SEARCH_PRODUCTS_FUNCTION_NAME")"
+
+          echo "BACKEND_SERVICE_NAME_SAFE=${BACKEND_SERVICE_SAFE}" >> "$GITHUB_ENV"
+          echo "FRONTEND_SERVICE_NAME_SAFE=${FRONTEND_SERVICE_SAFE}" >> "$GITHUB_ENV"
+          echo "CART_AGENT_FUNCTION_NAME_SAFE=${CART_AGENT_FUNCTION_SAFE}" >> "$GITHUB_ENV"
+          echo "CONNECT_BIGQUERY_FUNCTION_NAME_SAFE=${CONNECT_BIGQUERY_FUNCTION_SAFE}" >> "$GITHUB_ENV"
+          echo "SEARCH_PRODUCTS_FUNCTION_NAME_SAFE=${SEARCH_PRODUCTS_FUNCTION_SAFE}" >> "$GITHUB_ENV"
+          echo "BACKEND_IMAGE=gcr.io/${PROJECT_ID_LC}/${BACKEND_SERVICE_SAFE}:${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "FRONTEND_IMAGE=gcr.io/${PROJECT_ID_LC}/${FRONTEND_SERVICE_SAFE}:${GITHUB_SHA}" >> "$GITHUB_ENV"
 
       - name: Configure Docker for Google Cloud
         run: |
@@ -82,7 +119,7 @@ jobs:
       # Deploy backend to Cloud Run
       - name: Deploy backend to Cloud Run
         run: |
-          gcloud run deploy $BACKEND_SERVICE_NAME \
+          gcloud run deploy $BACKEND_SERVICE_NAME_SAFE \
             --image $BACKEND_IMAGE \
             --region $REGION \
             --service-account=$DEPLOYER_SERVICE_ACCOUNT \
@@ -126,7 +163,7 @@ jobs:
       - name: Get backend Cloud Run URL
         id: get-backend-url
         run: |
-          BACKEND_URL=$(gcloud run services describe $BACKEND_SERVICE_NAME --region $REGION --format='value(status.url)')
+          BACKEND_URL=$(gcloud run services describe $BACKEND_SERVICE_NAME_SAFE --region $REGION --format='value(status.url)')
           echo "BACKEND_URL=$BACKEND_URL" >> $GITHUB_ENV
 
       # Build and push frontend
@@ -146,7 +183,7 @@ jobs:
       # Deploy frontend to Cloud Run
       - name: Deploy frontend to Cloud Run
         run: |
-          gcloud run deploy $FRONTEND_SERVICE_NAME \
+          gcloud run deploy $FRONTEND_SERVICE_NAME_SAFE \
             --image $FRONTEND_IMAGE \
             --region $REGION \
             --port 3000 \
@@ -154,7 +191,7 @@ jobs:
 
       - name: Deploy Cart Agent Cloud Function (Gen2)
         run: |
-          gcloud functions deploy $CART_AGENT_FUNCTION_NAME \
+          gcloud functions deploy $CART_AGENT_FUNCTION_NAME_SAFE \
             --gen2 \
             --region $REGION \
             --runtime python311 \
@@ -170,7 +207,7 @@ jobs:
         env:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD || secrets.DB_PASS }}
         run: |
-          gcloud functions deploy $CONNECT_BIGQUERY_FUNCTION_NAME \
+          gcloud functions deploy $CONNECT_BIGQUERY_FUNCTION_NAME_SAFE \
             --gen2 \
             --region $REGION \
             --runtime python311 \
@@ -184,7 +221,7 @@ jobs:
 
       - name: Deploy Search Products Cloud Function (Gen2)
         run: |
-          gcloud functions deploy $SEARCH_PRODUCTS_FUNCTION_NAME \
+          gcloud functions deploy $SEARCH_PRODUCTS_FUNCTION_NAME_SAFE \
             --gen2 \
             --region $REGION \
             --runtime python311 \
