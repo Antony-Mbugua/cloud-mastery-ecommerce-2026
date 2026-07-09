@@ -85,7 +85,7 @@ export default function ShopCartPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Cart</h1>
         <p className="mt-2 text-sm text-slate-600">
-          Review your selected items and run a fake checkout.
+          Review your selected items and run a checkout.
         </p>
       </div>
 
@@ -150,26 +150,7 @@ export default function ShopCartPage() {
           <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-bold text-slate-900">Checkout Summary</h2>
 
-            <label htmlFor="checkout-customer" className="mt-4 block text-sm font-semibold text-slate-700">
-              Checkout as
-            </label>
-            <select
-              id="checkout-customer"
-              value={selectedCustomerId}
-              onChange={(event) => setSelectedCustomerId(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-slate-600 focus:outline-none"
-            >
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.firstName} {customer.lastName}
-                </option>
-              ))}
-            </select>
-
             <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
-              <p>
-                Customer: {selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : "Not selected"}
-              </p>
               <p className="mt-2 text-lg font-bold text-slate-900">
                 Total: KES {cartTotal.toLocaleString()}
               </p>
