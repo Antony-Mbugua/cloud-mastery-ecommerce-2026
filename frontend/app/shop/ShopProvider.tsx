@@ -43,6 +43,7 @@ const ShopContext = createContext<ShopContextType | null>(null);
 
 const CART_STORAGE_KEY = "shop-cart-items";
 const SESSION_STORAGE_KEY = "hazel-session";
+const CUSTOMER_STORAGE_KEY = "shop-selected-customer-id";
 
 /** Read session from sessionStorage (cleared on tab/refresh). */
 function readSession(): Session {
@@ -92,6 +93,11 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
       const aid =
         sess?.sessionId || sessionStorage.getItem("agent-session-id") || null;
       setActiveSessionId(aid);
+
+      const storedCustomerId = sessionStorage.getItem(CUSTOMER_STORAGE_KEY) || "";
+      if (storedCustomerId) {
+        setSelectedCustomerId(storedCustomerId);
+      }
   }, []);
 
 // 1. Run hydration ONCE on mount, not on a 100ms loop
@@ -191,6 +197,14 @@ useEffect(() => {
   useEffect(() => {
     sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
   }, [cartItems]);
+
+  useEffect(() => {
+    if (selectedCustomerId) {
+      sessionStorage.setItem(CUSTOMER_STORAGE_KEY, selectedCustomerId);
+    } else {
+      sessionStorage.removeItem(CUSTOMER_STORAGE_KEY);
+    }
+  }, [selectedCustomerId]);
 
   // ── Cart mutation helpers ──
 

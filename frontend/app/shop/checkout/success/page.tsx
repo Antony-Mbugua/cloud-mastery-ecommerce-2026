@@ -4,46 +4,83 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useShop } from "../../ShopProvider";
-import { addOrder } from "../../../api";
+import { addOrder, getCustomers } from "../../../api";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
   const orderTrackingId = searchParams.get("OrderTrackingId");
   const orderMerchantReference = searchParams.get("OrderMerchantReference");
-  const { cartItems, cartTotal, selectedCustomerId, clearCart } = useShop();
+  const { cartItems, cartTotal, selectedCustomerId, session, clearCart } = useShop();
   const [cleared, setCleared] = useState(false);
 
   useEffect(() => {
     if (!cleared && cartItems.length > 0) {
-      // Push the order to NestJS before clearing the cart
-      addOrder({
-        customerId: selectedCustomerId,
-        orderAmount: String(cartTotal),
-        orderDate: new Date(),
-        paymentMethod: "Pesapal",
-        shippingAddress: "Default",
-        status: "COMPLETED",
-        items: cartItems.map((item) => ({
-          productId: item.id,
-          quantity: item.cartQuantity,
-          unitCost: Number(item.unitCost),
-        })),
-      })
-        .then(() => {
+      const resolveCustomerId = async () => {
+        if (selectedCustomerId) return selectedCustomerId;
+
+        try {
+          const response = await getCustomers();
+          const customerList = Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response)
+              ? response
+              : [];
+
+          if (!customerList.length || !session?.phone) return "";
+
+          const normalizePhone = (value: string) => value.replace(/\D/g, "");
+          const sessionPhone = normalizePhone(session.phone);
+          const matched = customerList.find((customer: any) => {
+            return normalizePhone(customer.phone || "") === sessionPhone;
+          });
+
+          return matched?.id || "";
+        } catch {
+          return "";
+        }
+      };
+
+      const saveOrder = async () => {
+        const resolvedCustomerId = await resolveCustomerId();
+        if (!resolvedCustomerId) {
+          console.error("Failed to save order: missing customerId");
           clearCart();
           setCleared(true);
+          return;
+        }
+
+        // Push the order to NestJS before clearing the cart
+        addOrder({
+          customerId: resolvedCustomerId,
+          orderAmount: String(cartTotal),
+          orderDate: new Date(),
+          paymentMethod: "Pesapal",
+          shippingAddress: "Default",
+          status: "COMPLETED",
+          items: cartItems.map((item) => ({
+            productId: item.id,
+            quantity: item.cartQuantity,
+            unitCost: Number(item.unitCost),
+          })),
         })
-        .catch((err) => {
-          console.error("Failed to save order to database:", err);
-          // Still clear the cart to avoid infinite loops on error
-          clearCart();
-          setCleared(true);
-        });
+          .then(() => {
+            clearCart();
+            setCleared(true);
+          })
+          .catch((err) => {
+            console.error("Failed to save order to database:", err);
+            // Still clear the cart to avoid infinite loops on error
+            clearCart();
+            setCleared(true);
+          });
+      };
+
+      saveOrder();
     } else if (!cleared && cartItems.length === 0) {
       // If landed with empty cart, just mark cleared
       setCleared(true);
     }
-  }, [clearCart, cleared, cartItems, cartTotal, selectedCustomerId]);
+  }, [clearCart, cleared, cartItems, cartTotal, selectedCustomerId, session]);
 
   return (
     <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
