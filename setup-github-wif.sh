@@ -104,6 +104,8 @@ for ROLE in \
   roles/cloudbuild.builds.editor \
   roles/cloudbuild.builds.builder \
   roles/bigquery.admin \
+  roles/bigquery.dataViewer \
+  roles/bigquery.jobUser \
   roles/run.admin \
   roles/cloudfunctions.admin \
   roles/cloudsql.admin \
@@ -256,6 +258,8 @@ for ROLE in \
   roles/cloudbuild.builds.editor \
   roles/cloudbuild.builds.builder \
   roles/bigquery.admin \
+  roles/bigquery.dataViewer \
+  roles/bigquery.jobUser \
   roles/run.admin \
   roles/cloudfunctions.admin \
   roles/cloudsql.admin \
